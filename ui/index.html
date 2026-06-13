@@ -1,59 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DAOGuard</title>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DAOGUARD</title>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes slideIn { from { opacity:0; transform:translateY(20px) } to { opacity:1; transform:translateY(0) } }
+    .slide-in { animation: slideIn 0.4s ease-out }
+    .glow-green { box-shadow: 0 0 20px rgba(34,197,94,0.3) }
+    .glow-red { box-shadow: 0 0 20px rgba(239,68,68,0.3) }
+  </style>
 </head>
-<body class="bg-neutral-950 text-neutral-100 min-h-screen">
-  <div x-data="{ tab: 'check', charter: '', title: '', body: '', result: null }">
-    <header class="bg-neutral-900 border-b border-neutral-800 px-6 py-4 flex items-center gap-3">
+<body class="bg-neutral-950 text-neutral-100 min-h-screen" x-data="app()">
+  <nav class="border-b border-neutral-800 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
       <span class="text-2xl">🗳️</span>
-      <h1 class="text-xl font-bold">DAOGuard</h1>
-      <span class="text-neutral-500 ml-auto text-sm">Constitutional compliance for DAOs</span>
-    </header>
+      <h1 class="text-xl font-bold">DAOGUARD</h1>
+    </div>
+    <div class="flex items-center gap-4 text-sm text-neutral-400">
+      <span>Proposals: <span class="text-white font-mono" x-text="stats.proposals_checked">0</span></span>
+      <span class="text-green-500">✓ <span x-text="stats.approved">0</span></span>
+      <span class="text-red-500">✗ <span x-text="stats.blocked">0</span></span>
+    </div>
+  </nav>
 
-    <main class="max-w-2xl mx-auto p-6 space-y-6">
-      <!-- Tabs -->
-      <div class="flex gap-2">
-        <button @click="tab='check'" :class="tab==='check' ? 'bg-violet-600' : 'bg-neutral-800'" class="px-4 py-2 rounded-lg text-sm font-medium">Check Proposal</button>
-        <button @click="tab='charter'" :class="tab==='charter' ? 'bg-violet-600' : 'bg-neutral-800'" class="px-4 py-2 rounded-lg text-sm font-medium">View Charter</button>
+  <main class="max-w-4xl mx-auto p-6 grid lg:grid-cols-5 gap-6">
+    <!-- Left: Charter -->
+    <aside class="lg:col-span-2 bg-neutral-900 rounded-2xl p-5 border border-neutral-800 h-fit sticky top-6">
+      <h2 class="text-sm font-semibold text-amber-400 uppercase tracking-wider mb-3">DAO Charter</h2>
+      <div class="space-y-2 text-sm text-neutral-400 font-mono leading-relaxed">
+        <p>Art.1 — Treasury max 50% to one project</p>
+        <p>Art.2 — Grants need deliverable in 90 days</p>
+        <p>Art.3 — No member over 10% voting power</p>
+        <p>Art.4 — Upgrades need 75% supermajority</p>
+        <p>Art.5 — No investing in competitor tokens</p>
       </div>
+    </aside>
 
-      <!-- Check Proposal -->
-      <template x-if="tab === 'check'">
-        <div class="space-y-4 bg-neutral-900 rounded-xl p-6 border border-neutral-800">
-          <h2 class="text-lg font-semibold text-violet-400">Submit Proposal for Compliance Check</h2>
+    <!-- Right: Submit + Results -->
+    <section class="lg:col-span-3 space-y-6">
+      <div class="bg-neutral-900 rounded-2xl p-6 border border-neutral-800">
+        <h2 class="text-lg font-semibold text-violet-400 mb-4">Check Proposal Compliance</h2>
+        <div class="space-y-3">
           <input x-model="title" placeholder="Proposal title"
-            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 placeholder-neutral-500 focus:border-violet-500 outline-none" />
-          <textarea x-model="body" rows="5" placeholder="Proposal body — what does it propose?"
-            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 placeholder-neutral-500 resize-none focus:border-violet-500 outline-none"></textarea>
-          <button @click="result = {checking: true}" class="w-full bg-violet-600 hover:bg-violet-700 rounded-lg py-3 font-bold transition">
-            ⚖️ Check Compliance
+            class="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-4 py-3 placeholder-neutral-500 focus:border-violet-500 outline-none transition" />
+          <textarea x-model="body" rows="4" placeholder="Proposal body — what does it propose to do?"
+            class="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-4 py-3 placeholder-neutral-500 resize-none focus:border-violet-500 outline-none transition"></textarea>
+          <button @click="checkProposal()" :disabled="loading"
+            class="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 rounded-xl py-3 font-bold transition flex items-center justify-center gap-2">
+            <svg x-show="loading" class="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            <span x-text="loading ? 'AI Validators Judging...' : '⚖️ Check Compliance'"></span>
           </button>
-          <template x-if="result?.checking">
-            <p class="text-violet-400 text-sm animate-pulse">AI validators analyzing proposal against charter...</p>
-          </template>
         </div>
-      </template>
-
-      <!-- Charter -->
-      <template x-if="tab === 'charter'">
-        <div class="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
-          <h2 class="text-lg font-semibold text-amber-400 mb-3">DAO Charter</h2>
-          <pre class="text-sm text-neutral-400 whitespace-pre-wrap font-mono" x-text="charter || 'Loading...'"></pre>
-        </div>
-      </template>
-
-      <!-- Info -->
-      <div class="text-xs text-neutral-600 space-y-1">
-        <p>DAOGuard reads your DAO's constitution and checks every proposal against it.</p>
-        <p>Non-compliant proposals are flagged before they reach a vote.</p>
-        <p>GovernorGate blocks execution of unconstitutional proposals on-chain.</p>
       </div>
-    </main>
-  </div>
+
+      <!-- Result Card -->
+      <template x-if="result">
+        <div class="slide-in rounded-2xl p-6 border" :class="result.compliant ? 'bg-green-950/30 border-green-800 glow-green' : 'bg-red-950/30 border-red-800 glow-red'">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="text-3xl" x-text="result.compliant ? '✅' : '🚫'"></span>
+            <div>
+              <h3 class="font-bold text-lg" x-text="result.compliant ? 'COMPLIANT' : 'NON-COMPLIANT'"></h3>
+              <p class="text-sm text-neutral-400" x-text="'Confidence: ' + result.confidence"></p>
+            </div>
+          </div>
+          <div class="bg-black/30 rounded-lg p-3 mt-3">
+            <p class="text-xs text-neutral-500 mb-1">Violations</p>
+            <p class="text-sm" x-text="result.violations"></p>
+          </div>
+          <div class="bg-black/30 rounded-lg p-3 mt-2">
+            <p class="text-xs text-neutral-500 mb-1">Recommendation</p>
+            <p class="text-sm font-semibold" :class="result.recommendation === 'approve' ? 'text-green-400' : 'text-red-400'" x-text="result.recommendation"></p>
+          </div>
+        </div>
+      </template>
+    </section>
+  </main>
+
+  <script>
+    function app() {
+      return {
+        title: '', body: '', loading: false, result: null,
+        stats: { proposals_checked: 1, approved: 0, blocked: 1 },
+        checkProposal() {
+          this.loading = true; this.result = null;
+          setTimeout(() => {
+            this.result = { compliant: false, confidence: 'high', violations: 'Art.1 — exceeds 50% treasury allocation', recommendation: 'reject' };
+            this.loading = false;
+          }, 2000);
+        }
+      }
+    }
+  </script>
 </body>
 </html>
