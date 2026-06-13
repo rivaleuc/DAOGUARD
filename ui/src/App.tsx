@@ -1,268 +1,315 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Toaster, toast } from 'sonner'
 
 const CONTRACT = '0x04C2242963bCE3686BF050E27AE7Fded463302a1'
 
-export default function App() {
-  const [menuOpen, setMenuOpen] = useState(false)
+const CREAM = '#FAFAF9'
+const ORANGE = '#E85D04'
 
+type NavKey = 'Check' | 'Charter' | 'History' | 'Settings'
+
+type CheckResult = {
+  score: number
+  verdict: 'compliant' | 'flagged' | 'violation'
+  rules: { label: string; pass: boolean; note: string }[]
+}
+
+type ProposalRow = {
+  id: string
+  title: string
+  author: string
+  score: number
+  status: 'compliant' | 'flagged' | 'violation'
+  when: string
+}
+
+const RECENT: ProposalRow[] = [
+  { id: 'PIP-184', title: 'Treasury diversification into stETH', author: 'metagov.eth', score: 96, status: 'compliant', when: '2h ago' },
+  { id: 'PIP-183', title: 'Increase quorum threshold to 12%', author: '0x9f…21a', score: 71, status: 'flagged', when: '5h ago' },
+  { id: 'PIP-182', title: 'Grant multisig unilateral spend rights', author: 'core.eth', score: 38, status: 'violation', when: '1d ago' },
+  { id: 'PIP-181', title: 'Quadratic funding round #7 budget', author: 'grants.eth', score: 91, status: 'compliant', when: '1d ago' },
+  { id: 'PIP-180', title: 'Reduce timelock from 48h to 6h', author: '0x3c…8de', score: 54, status: 'flagged', when: '2d ago' },
+]
+
+const STATUS_STYLE: Record<ProposalRow['status'], { dot: string; text: string; label: string }> = {
+  compliant: { dot: '#16A34A', text: '#15803D', label: 'Compliant' },
+  flagged: { dot: '#D97706', text: '#B45309', label: 'Flagged' },
+  violation: { dot: '#DC2626', text: '#B91C1C', label: 'Violation' },
+}
+
+function Icon({ name }: { name: NavKey | 'wallet' | 'shield' | 'search' | 'spark' }) {
+  const common = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  switch (name) {
+    case 'Check': return <svg {...common}><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+    case 'Charter': return <svg {...common}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
+    case 'History': return <svg {...common}><path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /><path d="M12 7v5l4 2" /></svg>
+    case 'Settings': return <svg {...common}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 14H4a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 6 8.6l-.39-.39a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 11 4.6V4a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 2.78 1.18l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 11H20a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+    case 'wallet': return <svg {...common}><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4z" /></svg>
+    case 'shield': return <svg {...common}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+    case 'search': return <svg {...common}><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.3-4.3" /></svg>
+    case 'spark': return <svg {...common}><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4" /></svg>
+  }
+}
+
+const NAV: { key: NavKey }[] = [{ key: 'Check' }, { key: 'Charter' }, { key: 'History' }, { key: 'Settings' }]
+
+function StatCard({ label, value, delta, idx }: { label: string; value: string; delta: string; idx: number }) {
   return (
-    <div className="min-h-screen bg-[#FFFCF8] text-[#1C1917] overflow-x-hidden">
-      <Toaster position="bottom-center" />
-
-      {/* Navbar */}
-      <nav className="fixed top-0 inset-x-0 z-50 border-b border-black/5 bg-white/90 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <a href="#" className="flex items-center gap-2.5">
-            <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
-              <rect width="30" height="30" rx="8" fill="#E85D04"/>
-              <path d="M15 6L8 10v6c0 5 3.5 9 7 10 3.5-1 7-5 7-10v-6L15 6z" stroke="white" strokeWidth="1.6" fill="none"/>
-              <circle cx="15" cy="14" r="2" fill="white"/>
-            </svg>
-            <span className="font-bold text-[16px]">DAOGuard</span>
-          </a>
-          <div className="hidden md:flex items-center gap-8 text-[14px] text-[#57534E]">
-            <a href="#features" className="hover:text-[#E85D04] transition-colors">Features</a>
-            <a href="#how" className="hover:text-[#E85D04] transition-colors">How it Works</a>
-            <a href="#charter" className="hover:text-[#E85D04] transition-colors">Charter</a>
-            <a href="#app" className="hover:text-[#E85D04] transition-colors">App</a>
-          </div>
-          <a href="#app" className="hidden md:inline-flex px-4 py-2 bg-[#E85D04] text-white text-[13px] font-semibold rounded-lg hover:bg-[#D45203] transition-colors shadow-sm">
-            Launch App →
-          </a>
-        </div>
-      </nav>
-
-      {/* Hero */}
-      <section className="pt-32 pb-20 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
-            <span className="inline-block px-3 py-1 bg-orange-50 border border-orange-200 rounded-full text-[12px] text-[#E85D04] font-medium mb-6">
-              Live on GenLayer Bradbury Testnet
-            </span>
-            <h1 className="text-[42px] sm:text-[56px] font-extrabold leading-[1.1] tracking-tight">
-              Never pass an<br/>
-              <span className="text-[#E85D04]">unconstitutional</span><br/>
-              proposal again.
-            </h1>
-            <p className="text-[18px] text-[#78716C] mt-6 max-w-xl mx-auto leading-relaxed">
-              DAOGuard checks every governance proposal against your charter using AI consensus. 
-              Non-compliant proposals get flagged before they reach a vote.
-            </p>
-            <div className="flex items-center justify-center gap-4 mt-10">
-              <a href="#app" className="px-6 py-3 bg-[#E85D04] text-white font-semibold rounded-xl hover:bg-[#D45203] transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5">
-                Try it Now
-              </a>
-              <a href="#how" className="px-6 py-3 border border-[#D6D3D1] text-[#57534E] font-medium rounded-xl hover:border-[#E85D04] hover:text-[#E85D04] transition-all">
-                Learn More
-              </a>
-            </div>
-          </motion.div>
-
-          {/* Hero visual */}
-          <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.8 }}
-            className="mt-16 bg-white rounded-2xl border border-[#E7E5E4] shadow-xl shadow-black/[0.03] p-6 max-w-2xl mx-auto">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-3 h-3 rounded-full bg-[#FCA5A5]" />
-              <div className="w-3 h-3 rounded-full bg-[#FCD34D]" />
-              <div className="w-3 h-3 rounded-full bg-[#6EE7B7]" />
-              <span className="text-[11px] text-[#A8A29E] ml-2">proposal-check.dao</span>
-            </div>
-            <div className="bg-[#FAFAF9] rounded-lg p-4 border border-[#F5F5F4]">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center text-red-500 text-sm shrink-0">✗</div>
-                <div>
-                  <p className="font-semibold text-[14px]">Proposal: "Allocate 80% treasury to Project X"</p>
-                  <p className="text-[13px] text-red-600 mt-1">§1 violated — exceeds 50% allocation limit</p>
-                  <div className="flex gap-2 mt-2">
-                    <span className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full">BLOCKED</span>
-                    <span className="text-[10px] text-[#A8A29E]">5/5 validators agree</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section id="features" className="py-20 px-6 bg-white border-y border-[#F5F5F4]">
-        <div className="max-w-5xl mx-auto">
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-14">
-            <h2 className="text-[32px] font-bold tracking-tight">Built for DAO Governance</h2>
-            <p className="text-[#78716C] mt-2">Everything you need to enforce your constitution on-chain.</p>
-          </motion.div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { icon: '⚡', title: 'Instant Analysis', desc: 'Proposals checked in seconds, not days. 5 AI validators reach consensus independently.' },
-              { icon: '📜', title: 'Natural Language Charter', desc: 'Write your constitution in plain English. No Solidity, no encoding, no rigid templates.' },
-              { icon: '🔗', title: 'On-chain Enforcement', desc: 'GovernorGate blocks non-compliant proposals from execution. Automatic, trustless.' },
-              { icon: '🎯', title: 'Clause-Level Citations', desc: 'Know exactly which article was violated and why. Not just pass/fail — full reasoning.' },
-              { icon: '🛡️', title: 'Decentralized Judgment', desc: 'No single judge. Multiple AI models independently evaluate and reach consensus.' },
-              { icon: '🔄', title: 'Evolving Charter', desc: 'Amend your charter anytime. Future proposals judged against the latest version.' },
-            ].map((f, i) => (
-              <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }} transition={{ delay: i * 0.08 }}
-                className="bg-[#FAFAF9] rounded-xl p-6 border border-[#F5F5F4] hover:border-[#E85D04]/20 hover:shadow-md transition-all group">
-                <span className="text-2xl block mb-3">{f.icon}</span>
-                <h3 className="font-semibold text-[15px] mb-1 group-hover:text-[#E85D04] transition-colors">{f.title}</h3>
-                <p className="text-[13px] text-[#78716C] leading-relaxed">{f.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section id="how" className="py-20 px-6">
-        <div className="max-w-4xl mx-auto">
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-14">
-            <h2 className="text-[32px] font-bold tracking-tight">How it Works</h2>
-            <p className="text-[#78716C] mt-2">Three steps from proposal to verdict.</p>
-          </motion.div>
-          <div className="space-y-0">
-            {[
-              { step: '01', title: 'Submit Proposal', desc: 'Paste your proposal title and body. No wallet connection needed for the check itself.' },
-              { step: '02', title: 'AI Validators Evaluate', desc: '5 validators running diverse LLMs independently read your charter, analyze the proposal, and cite specific clauses.' },
-              { step: '03', title: 'Instant Verdict', desc: 'Compliant or blocked — with full reasoning, confidence level, and the exact articles violated.' },
-            ].map((s, i) => (
-              <motion.div key={i} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }} transition={{ delay: i * 0.15 }}
-                className="flex gap-6 py-8 border-b border-[#F5F5F4] last:border-0">
-                <span className="text-[48px] font-black text-[#F5F5F4] leading-none">{s.step}</span>
-                <div>
-                  <h3 className="font-bold text-[17px] mb-1">{s.title}</h3>
-                  <p className="text-[14px] text-[#78716C] leading-relaxed">{s.desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Charter display */}
-      <section id="charter" className="py-20 px-6 bg-[#1C1917] text-white">
-        <div className="max-w-3xl mx-auto">
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
-            <h2 className="text-[32px] font-bold tracking-tight text-center mb-2">Active Charter</h2>
-            <p className="text-[#A8A29E] text-center mb-10">The constitution your proposals are judged against.</p>
-            <div className="space-y-4">
-              {[
-                { id: '§1', text: 'The DAO treasury shall not exceed 50% allocation to any single project.' },
-                { id: '§2', text: 'All grants must produce a public deliverable within 90 days of funding.' },
-                { id: '§3', text: 'No individual member may accumulate more than 10% of total voting power.' },
-                { id: '§4', text: 'Protocol upgrades require a 75% supermajority to pass.' },
-                { id: '§5', text: 'The DAO shall not invest in tokens issued by competing protocols.' },
-              ].map((c, i) => (
-                <motion.div key={i} initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
-                  viewport={{ once: true }} transition={{ delay: i * 0.08 }}
-                  className="flex gap-4 items-start bg-white/5 rounded-xl p-5 border border-white/5">
-                  <span className="text-[#E85D04] font-mono text-[13px] bg-orange-500/10 px-2 py-1 rounded shrink-0">{c.id}</span>
-                  <p className="text-[15px] text-[#E7E5E4] leading-relaxed">{c.text}</p>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* App Section */}
-      <section id="app" className="py-20 px-6">
-        <div className="max-w-2xl mx-auto">
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-10">
-            <h2 className="text-[32px] font-bold tracking-tight">Check a Proposal</h2>
-            <p className="text-[#78716C] mt-2">Try it now — paste any proposal and see the verdict.</p>
-          </motion.div>
-
-          <AppForm />
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-[#F5F5F4] py-10 px-6 bg-white">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <svg width="20" height="20" viewBox="0 0 30 30" fill="none">
-              <rect width="30" height="30" rx="8" fill="#E85D04"/>
-              <path d="M15 6L8 10v6c0 5 3.5 9 7 10 3.5-1 7-5 7-10v-6L15 6z" stroke="white" strokeWidth="1.6" fill="none"/>
-              <circle cx="15" cy="14" r="2" fill="white"/>
-            </svg>
-            <span className="text-[13px] text-[#78716C]">DAOGuard — Powered by GenLayer</span>
-          </div>
-          <code className="text-[11px] text-[#A8A29E]">{CONTRACT}</code>
-        </div>
-      </footer>
-    </div>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: idx * 0.06 }}
+      className="rounded-2xl border border-stone-200/80 bg-white p-5 shadow-[0_1px_0_rgba(0,0,0,0.02)]"
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">{label}</p>
+      <p className="mt-3 text-3xl font-bold tracking-tight text-stone-900">{value}</p>
+      <p className="mt-1 text-xs font-medium text-stone-500">{delta}</p>
+    </motion.div>
   )
 }
 
-function AppForm() {
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [verdict, setVerdict] = useState<{ compliant: boolean; violations: string; confidence: string } | null>(null)
+function App() {
+  const [active, setActive] = useState<NavKey>('Check')
+  const [wallet, setWallet] = useState<string | null>(null)
+  const [text, setText] = useState('')
+  const [running, setRunning] = useState(false)
+  const [result, setResult] = useState<CheckResult | null>(null)
 
-  const check = async () => {
-    if (!title || !body) { toast.error('Fill both fields'); return }
-    setLoading(true); setVerdict(null)
-    await new Promise(r => setTimeout(r, 3000))
-    const compliant = !body.match(/[6-9]0%|100%|majority of treasury/)
-    setVerdict({
-      compliant,
-      violations: compliant ? 'None found.' : '§1 — exceeds 50% treasury allocation limit.',
-      confidence: 'high'
-    })
-    setLoading(false)
+  const passRate = useMemo(() => {
+    const p = RECENT.filter((r) => r.status === 'compliant').length
+    return Math.round((p / RECENT.length) * 100)
+  }, [])
+
+  function connect() {
+    if (wallet) {
+      setWallet(null)
+      toast('Wallet disconnected')
+      return
+    }
+    const addr = '0x' + Math.random().toString(16).slice(2, 6) + '…' + Math.random().toString(16).slice(2, 6)
+    setWallet(addr)
+    toast.success('Wallet connected', { description: addr })
+  }
+
+  function runCheck() {
+    if (!text.trim()) {
+      toast.error('Paste proposal text to check')
+      return
+    }
+    setRunning(true)
+    setResult(null)
+    toast.loading('Auditing against charter…', { id: 'check' })
+    setTimeout(() => {
+      const score = 40 + Math.floor(Math.random() * 60)
+      const verdict: CheckResult['verdict'] = score >= 85 ? 'compliant' : score >= 60 ? 'flagged' : 'violation'
+      setResult({
+        score,
+        verdict,
+        rules: [
+          { label: 'Treasury spend cap', pass: score > 55, note: 'within Art. 4 limits' },
+          { label: 'Timelock ≥ 48h', pass: score > 70, note: 'enforced delay window' },
+          { label: 'Quorum eligibility', pass: score > 45, note: 'meets Art. 2 threshold' },
+          { label: 'No unilateral powers', pass: score > 80, note: 'multisig constraints' },
+        ],
+      })
+      setRunning(false)
+      toast[verdict === 'compliant' ? 'success' : verdict === 'flagged' ? 'warning' : 'error'](
+        `Score ${score} — ${verdict}`,
+        { id: 'check' },
+      )
+    }, 1300)
   }
 
   return (
-    <div className="space-y-5">
-      <div className="bg-white rounded-2xl border border-[#E7E5E4] p-7 shadow-sm">
-        <div className="space-y-4">
-          <div>
-            <label className="text-[12px] font-semibold text-[#78716C] uppercase tracking-wide mb-1.5 block">Proposal Title</label>
-            <input value={title} onChange={e => setTitle(e.target.value)}
-              placeholder="What does this proposal do?"
-              className="w-full border border-[#E7E5E4] rounded-xl px-4 py-3 text-[14px] placeholder-[#C4C0BC] outline-none focus:border-[#E85D04] focus:ring-2 focus:ring-orange-50 transition-all" />
-          </div>
-          <div>
-            <label className="text-[12px] font-semibold text-[#78716C] uppercase tracking-wide mb-1.5 block">Proposal Body</label>
-            <textarea value={body} onChange={e => setBody(e.target.value)} rows={4}
-              placeholder="Describe allocation, timeline, deliverables..."
-              className="w-full border border-[#E7E5E4] rounded-xl px-4 py-3 text-[14px] placeholder-[#C4C0BC] outline-none focus:border-[#E85D04] focus:ring-2 focus:ring-orange-50 transition-all resize-none" />
-          </div>
-          <motion.button onClick={check} disabled={loading} whileTap={{ scale: 0.98 }}
-            className="w-full bg-[#E85D04] hover:bg-[#D45203] disabled:bg-[#D6D3D1] text-white rounded-xl py-3.5 text-[14px] font-semibold transition-colors">
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Evaluating...
-              </span>
-            ) : 'Check Compliance →'}
-          </motion.button>
-        </div>
-      </div>
+    <div className="flex min-h-screen" style={{ background: CREAM, color: '#1C1917' }}>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      <Toaster position="bottom-right" richColors closeButton />
 
-      <AnimatePresence>
-        {verdict && (
-          <motion.div initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0 }}
-            className={`rounded-2xl border p-6 ${verdict.compliant ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-            <div className="flex items-start gap-3">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white shrink-0 ${verdict.compliant ? 'bg-emerald-500' : 'bg-red-500'}`}>
-                {verdict.compliant ? '✓' : '✗'}
+      {/* SIDEBAR */}
+      <aside className="sticky top-0 hidden h-screen w-64 flex-col border-r border-stone-200 bg-white/70 px-4 py-6 backdrop-blur md:flex">
+        <div className="flex items-center gap-2.5 px-2">
+          <div className="grid h-9 w-9 place-items-center rounded-xl text-white" style={{ background: ORANGE }}>
+            <Icon name="shield" />
+          </div>
+          <div>
+            <p className="text-sm font-extrabold leading-none tracking-tight">DAOGUARD</p>
+            <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.18em] text-stone-400">Compliance</p>
+          </div>
+        </div>
+
+        <nav className="mt-8 flex flex-col gap-1">
+          {NAV.map(({ key }) => {
+            const on = active === key
+            return (
+              <button
+                key={key}
+                onClick={() => { setActive(key); if (key !== 'Check') toast(`${key} panel`, { description: 'Coming online soon' }) }}
+                className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${on ? 'text-white' : 'text-stone-600 hover:bg-stone-100'}`}
+                style={on ? { background: ORANGE } : undefined}
+              >
+                <Icon name={key} />
+                {key}
+              </button>
+            )
+          })}
+        </nav>
+
+        <div className="mt-auto rounded-2xl border border-stone-200 bg-stone-50 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">Charter contract</p>
+          <p className="mt-1 break-all font-mono text-[11px] leading-relaxed text-stone-600">{CONTRACT}</p>
+          <button
+            onClick={() => { navigator.clipboard?.writeText(CONTRACT); toast.success('Contract copied') }}
+            className="mt-2 w-full rounded-lg border border-stone-200 bg-white py-1.5 text-[11px] font-semibold text-stone-700 transition hover:border-stone-300"
+          >
+            Copy address
+          </button>
+        </div>
+      </aside>
+
+      {/* MAIN */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* TOP BAR */}
+        <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-stone-200 bg-[#FAFAF9]/85 px-6 py-4 backdrop-blur">
+          <div>
+            <h1 className="text-lg font-bold tracking-tight">Proposal Compliance</h1>
+            <p className="text-xs text-stone-500">Audit governance proposals against the on-chain charter</p>
+          </div>
+          <div className="ml-auto hidden items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-stone-400 lg:flex">
+            <Icon name="search" />
+            <input
+              placeholder="Search PIPs…"
+              className="w-44 bg-transparent text-sm text-stone-700 outline-none placeholder:text-stone-400"
+            />
+          </div>
+          <button
+            onClick={connect}
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${wallet ? 'border border-emerald-200 bg-emerald-50 text-emerald-700' : 'text-white'}`}
+            style={wallet ? undefined : { background: ORANGE }}
+          >
+            <span className={`h-2 w-2 rounded-full ${wallet ? 'bg-emerald-500' : 'bg-white/80'}`} />
+            <Icon name="wallet" />
+            {wallet ?? 'Connect wallet'}
+          </button>
+        </header>
+
+        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-7">
+          {/* STATS ROW */}
+          <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatCard idx={0} label="Proposals checked" value="1,284" delta="+37 this week" />
+            <StatCard idx={1} label="Pass rate" value={`${passRate}%`} delta="across recent batch" />
+            <StatCard idx={2} label="Active charter rules" value="24" delta="v3.2 ratified" />
+            <StatCard idx={3} label="Avg. compliance" value="82" delta="+4 vs last month" />
+          </section>
+
+          {/* CHECK TOOL + RESULT */}
+          <section className="mt-6 grid gap-5 lg:grid-cols-5">
+            <div className="lg:col-span-3 rounded-2xl border border-stone-200 bg-white p-5">
+              <div className="flex items-center gap-2">
+                <span style={{ color: ORANGE }}><Icon name="spark" /></span>
+                <h2 className="text-sm font-bold">Run compliance check</h2>
               </div>
-              <div>
-                <p className={`font-bold text-[16px] ${verdict.compliant ? 'text-emerald-800' : 'text-red-800'}`}>
-                  {verdict.compliant ? 'Compliant' : 'Non-Compliant'}
-                </p>
-                <p className={`text-[13px] mt-1 ${verdict.compliant ? 'text-emerald-700' : 'text-red-700'}`}>{verdict.violations}</p>
-                <p className="text-[11px] text-[#A8A29E] mt-2">5 validators • {verdict.confidence} confidence • ~3s</p>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Paste a proposal description, calldata summary, or PIP body…"
+                className="mt-3 h-40 w-full resize-none rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm text-stone-800 outline-none transition focus:border-stone-300 focus:bg-white"
+              />
+              <div className="mt-3 flex items-center justify-between">
+                <p className="text-xs text-stone-400">{text.trim().length} chars · checked against 24 rules</p>
+                <button
+                  onClick={runCheck}
+                  disabled={running}
+                  className="rounded-xl px-4 py-2 text-sm font-semibold text-white transition disabled:opacity-60"
+                  style={{ background: ORANGE }}
+                >
+                  {running ? 'Auditing…' : 'Run check'}
+                </button>
               </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+            <div className="lg:col-span-2 rounded-2xl border border-stone-200 bg-white p-5">
+              <h2 className="text-sm font-bold">Result</h2>
+              <AnimatePresence mode="wait">
+                {result ? (
+                  <motion.div key="res" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                    <div className="mt-3 flex items-end gap-3">
+                      <span className="text-5xl font-extrabold tracking-tighter" style={{ color: ORANGE }}>{result.score}</span>
+                      <span className="mb-1 rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide"
+                        style={{ background: STATUS_STYLE[result.verdict].dot + '22', color: STATUS_STYLE[result.verdict].text }}>
+                        {STATUS_STYLE[result.verdict].label}
+                      </span>
+                    </div>
+                    <ul className="mt-4 space-y-2">
+                      {result.rules.map((r) => (
+                        <li key={r.label} className="flex items-center gap-2 text-sm">
+                          <span className={`grid h-5 w-5 place-items-center rounded-full text-[11px] font-bold text-white ${r.pass ? 'bg-emerald-500' : 'bg-red-500'}`}>
+                            {r.pass ? '✓' : '✕'}
+                          </span>
+                          <span className="font-medium text-stone-700">{r.label}</span>
+                          <span className="ml-auto text-xs text-stone-400">{r.note}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </motion.div>
+                ) : (
+                  <motion.p key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="mt-6 text-center text-sm text-stone-400">
+                    Run a check to see the charter audit breakdown.
+                  </motion.p>
+                )}
+              </AnimatePresence>
+            </div>
+          </section>
+
+          {/* RECENT TABLE */}
+          <section className="mt-6 overflow-hidden rounded-2xl border border-stone-200 bg-white">
+            <div className="flex items-center justify-between border-b border-stone-100 px-5 py-3.5">
+              <h2 className="text-sm font-bold">Recent proposals</h2>
+              <button onClick={() => toast('Opening full history')} className="text-xs font-semibold" style={{ color: ORANGE }}>View all →</button>
+            </div>
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-wider text-stone-400">
+                  <th className="px-5 py-2.5 font-semibold">PIP</th>
+                  <th className="px-5 py-2.5 font-semibold">Title</th>
+                  <th className="hidden px-5 py-2.5 font-semibold sm:table-cell">Author</th>
+                  <th className="px-5 py-2.5 font-semibold">Score</th>
+                  <th className="px-5 py-2.5 font-semibold">Status</th>
+                  <th className="hidden px-5 py-2.5 font-semibold md:table-cell">When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {RECENT.map((r, i) => (
+                  <motion.tr
+                    key={r.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3 + i * 0.05 }}
+                    onClick={() => toast(`${r.id}`, { description: r.title })}
+                    className="cursor-pointer border-t border-stone-100 transition hover:bg-stone-50"
+                  >
+                    <td className="px-5 py-3 font-mono text-xs font-semibold text-stone-500">{r.id}</td>
+                    <td className="px-5 py-3 font-medium text-stone-800">{r.title}</td>
+                    <td className="hidden px-5 py-3 font-mono text-xs text-stone-500 sm:table-cell">{r.author}</td>
+                    <td className="px-5 py-3 font-bold" style={{ color: ORANGE }}>{r.score}</td>
+                    <td className="px-5 py-3">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: STATUS_STYLE[r.status].text }}>
+                        <span className="h-2 w-2 rounded-full" style={{ background: STATUS_STYLE[r.status].dot }} />
+                        {STATUS_STYLE[r.status].label}
+                      </span>
+                    </td>
+                    <td className="hidden px-5 py-3 text-xs text-stone-400 md:table-cell">{r.when}</td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        </main>
+      </div>
     </div>
   )
 }
+
+export default App
