@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Toaster, toast } from 'sonner'
-
-const CONTRACT = '0x04C2242963bCE3686BF050E27AE7Fded463302a1'
+import { read, write, CONTRACT } from './genlayer'
 
 const CREAM = '#FAFAF9'
 const ORANGE = '#E85D04'
@@ -75,6 +74,13 @@ function App() {
   const [text, setText] = useState('')
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<CheckResult | null>(null)
+  const [chainStats, setChainStats] = useState<{ checked: number; approved: number; blocked: number } | null>(null)
+
+  useEffect(() => {
+    read('stats').then((s: any) => setChainStats({
+      checked: Number(s.proposals_checked), approved: Number(s.approved), blocked: Number(s.blocked),
+    })).catch(() => {})
+  }, [result])
 
   const passRate = useMemo(() => {
     const p = RECENT.filter((r) => r.status === 'compliant').length
@@ -92,33 +98,47 @@ function App() {
     toast.success('Wallet connected', { description: addr })
   }
 
-  function runCheck() {
+  async function runCheck() {
     if (!text.trim()) {
       toast.error('Paste proposal text to check')
       return
     }
     setRunning(true)
     setResult(null)
-    toast.loading('Auditing against charter…', { id: 'check' })
-    setTimeout(() => {
-      const score = 40 + Math.floor(Math.random() * 60)
-      const verdict: CheckResult['verdict'] = score >= 85 ? 'compliant' : score >= 60 ? 'flagged' : 'violation'
+    toast.loading('Submitting to GenLayer validators…', { id: 'check' })
+    try {
+      const title = text.trim().split('\n')[0].slice(0, 80)
+      const author = wallet ?? 'anon.eth'
+      // REAL on-chain write — AI validators evaluate against the charter
+      await write('check_proposal', [title, text.trim(), author])
+      toast.loading('Reading verdict from chain…', { id: 'check' })
+      // Read the latest proposal verdict back from the contract
+      const stats: any = await read('stats')
+      const key = String(Number(stats.proposals_checked) - 1)
+      const p: any = await read('get_proposal', [key])
+      const compliant = !!p.compliant
+      const conf = String(p.confidence || 'medium')
+      const score = compliant ? (conf === 'high' ? 95 : 82) : (conf === 'high' ? 22 : 45)
+      const verdict: CheckResult['verdict'] = compliant ? 'compliant' : 'violation'
+      const violations = String(p.violations || 'none')
       setResult({
         score,
         verdict,
         rules: [
-          { label: 'Treasury spend cap', pass: score > 55, note: 'within Art. 4 limits' },
-          { label: 'Timelock ≥ 48h', pass: score > 70, note: 'enforced delay window' },
-          { label: 'Quorum eligibility', pass: score > 45, note: 'meets Art. 2 threshold' },
-          { label: 'No unilateral powers', pass: score > 80, note: 'multisig constraints' },
+          { label: 'Charter compliance', pass: compliant, note: compliant ? 'meets all articles' : violations },
+          { label: 'Recommendation', pass: String(p.recommendation) === 'approve', note: String(p.recommendation || '—') },
+          { label: 'Validator confidence', pass: conf !== 'low', note: `${conf} confidence` },
         ],
       })
       setRunning(false)
-      toast[verdict === 'compliant' ? 'success' : verdict === 'flagged' ? 'warning' : 'error'](
-        `Score ${score} — ${verdict}`,
-        { id: 'check' },
+      toast[verdict === 'compliant' ? 'success' : 'error'](
+        compliant ? 'Compliant — verified on-chain' : 'Non-compliant — blocked',
+        { id: 'check', description: violations },
       )
-    }, 1300)
+    } catch (e: any) {
+      setRunning(false)
+      toast.error('Screening failed', { id: 'check', description: e?.message?.slice(0, 80) ?? 'chain error' })
+    }
   }
 
   return (
@@ -197,10 +217,10 @@ function App() {
         <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-7">
           {/* STATS ROW */}
           <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard idx={0} label="Proposals checked" value="1,284" delta="+37 this week" />
-            <StatCard idx={1} label="Pass rate" value={`${passRate}%`} delta="across recent batch" />
-            <StatCard idx={2} label="Active charter rules" value="24" delta="v3.2 ratified" />
-            <StatCard idx={3} label="Avg. compliance" value="82" delta="+4 vs last month" />
+            <StatCard idx={0} label="Proposals checked" value={chainStats ? String(chainStats.checked) : '…'} delta="live on-chain" />
+            <StatCard idx={1} label="Approved" value={chainStats ? String(chainStats.approved) : '…'} delta="charter-compliant" />
+            <StatCard idx={2} label="Blocked" value={chainStats ? String(chainStats.blocked) : '…'} delta="violations caught" />
+            <StatCard idx={3} label="Active charter rules" value="5" delta="v1 ratified" />
           </section>
 
           {/* CHECK TOOL + RESULT */}
