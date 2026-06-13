@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DAOGuard</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-neutral-950 text-neutral-100 min-h-screen">
+  <div x-data="{ tab: 'check', charter: '', title: '', body: '', result: null }">
+    <header class="bg-neutral-900 border-b border-neutral-800 px-6 py-4 flex items-center gap-3">
+      <span class="text-2xl">🗳️</span>
+      <h1 class="text-xl font-bold">DAOGuard</h1>
+      <span class="text-neutral-500 ml-auto text-sm">Constitutional compliance for DAOs</span>
+    </header>
+
+    <main class="max-w-2xl mx-auto p-6 space-y-6">
+      <!-- Tabs -->
+      <div class="flex gap-2">
+        <button @click="tab='check'" :class="tab==='check' ? 'bg-violet-600' : 'bg-neutral-800'" class="px-4 py-2 rounded-lg text-sm font-medium">Check Proposal</button>
+        <button @click="tab='charter'" :class="tab==='charter' ? 'bg-violet-600' : 'bg-neutral-800'" class="px-4 py-2 rounded-lg text-sm font-medium">View Charter</button>
+      </div>
+
+      <!-- Check Proposal -->
+      <template x-if="tab === 'check'">
+        <div class="space-y-4 bg-neutral-900 rounded-xl p-6 border border-neutral-800">
+          <h2 class="text-lg font-semibold text-violet-400">Submit Proposal for Compliance Check</h2>
+          <input x-model="title" placeholder="Proposal title"
+            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 placeholder-neutral-500 focus:border-violet-500 outline-none" />
+          <textarea x-model="body" rows="5" placeholder="Proposal body — what does it propose?"
+            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-3 placeholder-neutral-500 resize-none focus:border-violet-500 outline-none"></textarea>
+          <button @click="result = {checking: true}" class="w-full bg-violet-600 hover:bg-violet-700 rounded-lg py-3 font-bold transition">
+            ⚖️ Check Compliance
+          </button>
+          <template x-if="result?.checking">
+            <p class="text-violet-400 text-sm animate-pulse">AI validators analyzing proposal against charter...</p>
+          </template>
+        </div>
+      </template>
+
+      <!-- Charter -->
+      <template x-if="tab === 'charter'">
+        <div class="bg-neutral-900 rounded-xl p-6 border border-neutral-800">
+          <h2 class="text-lg font-semibold text-amber-400 mb-3">DAO Charter</h2>
+          <pre class="text-sm text-neutral-400 whitespace-pre-wrap font-mono" x-text="charter || 'Loading...'"></pre>
+        </div>
+      </template>
+
+      <!-- Info -->
+      <div class="text-xs text-neutral-600 space-y-1">
+        <p>DAOGuard reads your DAO's constitution and checks every proposal against it.</p>
+        <p>Non-compliant proposals are flagged before they reach a vote.</p>
+        <p>GovernorGate blocks execution of unconstitutional proposals on-chain.</p>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
