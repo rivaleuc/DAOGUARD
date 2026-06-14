@@ -4,21 +4,47 @@ import type { Address } from 'genlayer-js/types'
 
 export const CONTRACT = '0x04C2242963bCE3686BF050E27AE7Fded463302a1' as Address
 
-// No private key anywhere — all writes are signed by the user's own wallet.
-export const client = createClient({ chain: testnetBradbury })
+const BRADBURY_HEX = '0x107d' // 4221
 
+// No private key, no GenLayer snap. Reads hit the RPC; writes are signed by the
+// user's own MetaMask as a normal EVM transaction (string account => the SDK
+// routes eth_sendTransaction to window.ethereum).
+let client = createClient({ chain: testnetBradbury })
 let walletAddress: string | null = null
+
 export function account(): string | null { return walletAddress }
 export function isWalletConnected(): boolean { return walletAddress !== null }
 
-// Connect MetaMask + GenLayer snap, switch to Bradbury, sign with the user's wallet.
+async function ensureChain(eth: any) {
+  const id: string = await eth.request({ method: 'eth_chainId' })
+  if (id?.toLowerCase() !== BRADBURY_HEX) {
+    try {
+      await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BRADBURY_HEX }] })
+    } catch (e: any) {
+      if (e?.code === 4902 || /Unrecognized chain/i.test(e?.message ?? '')) {
+        await eth.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: BRADBURY_HEX,
+            chainName: 'GenLayer Bradbury Testnet',
+            nativeCurrency: { name: 'GEN', symbol: 'GEN', decimals: 18 },
+            rpcUrls: ['https://rpc-bradbury.genlayer.com'],
+            blockExplorerUrls: ['https://explorer-bradbury.genlayer.com'],
+          }],
+        })
+      } else throw e
+    }
+  }
+}
+
 export async function connectWallet(): Promise<string> {
   const eth = (globalThis as any).window?.ethereum
   if (!eth) throw new Error('MetaMask not found — install it to sign transactions.')
   const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' })
-  await client.connect(testnetBradbury)
+  await ensureChain(eth)
   walletAddress = accounts[0]
-  ;(client as any).account = walletAddress
+  // Recreate the client with the address as a STRING so writes route to the wallet (no snap).
+  client = createClient({ chain: testnetBradbury, account: walletAddress as Address })
   return walletAddress
 }
 
