@@ -8,10 +8,6 @@ Constitutional compliance checker for DAOs. Every proposal is checked against th
 
 Charter: "Art1: Treasury max 50% to one project. Art2: Grants need public deliverable in 90 days. Art3: No member over 10% voting power. Art4: Upgrades need 75% supermajority. Art5: No investing in competitor tokens."
 
-## Test
-
-"Allocate 20% of treasury to developer grants" → ✅ **Compliant** (under 50%, has deliverables)
-
 ## Structure
 
 ```

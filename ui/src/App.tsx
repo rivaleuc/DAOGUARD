@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Toaster, toast } from 'sonner'
-import { read, write, CONTRACT } from './genlayer'
+import { read, write, connectWallet, CONTRACT } from './genlayer'
 
 const CREAM = '#FAFAF9'
 const ORANGE = '#E85D04'
@@ -87,15 +87,20 @@ function App() {
     return Math.round((p / RECENT.length) * 100)
   }, [])
 
-  function connect() {
+  async function connect() {
     if (wallet) {
       setWallet(null)
       toast('Wallet disconnected')
       return
     }
-    const addr = '0x' + Math.random().toString(16).slice(2, 6) + '…' + Math.random().toString(16).slice(2, 6)
-    setWallet(addr)
-    toast.success('Wallet connected', { description: addr })
+    try {
+      toast.loading('Connecting wallet…', { id: 'wc' })
+      const addr = await connectWallet()
+      setWallet(addr.slice(0, 6) + '…' + addr.slice(-4))
+      toast.success('Wallet connected', { id: 'wc', description: addr })
+    } catch (e: any) {
+      toast.error('Connection failed', { id: 'wc', description: e?.message?.slice(0, 80) })
+    }
   }
 
   async function runCheck() {

@@ -1,40 +1,34 @@
-import { createClient, createAccount } from 'genlayer-js'
+import { createClient } from 'genlayer-js'
 import { testnetBradbury } from 'genlayer-js/chains'
 import type { Address } from 'genlayer-js/types'
 
 export const CONTRACT = '0x04C2242963bCE3686BF050E27AE7Fded463302a1' as Address
 
-// Burner account (testnet only) funded with GEN for write transactions.
-const PK = (import.meta.env.VITE_BURNER_PK ?? '') as `0x${string}`
-const account = PK ? createAccount(PK) : undefined
+// No private key anywhere — all writes are signed by the user's own wallet.
+export const client = createClient({ chain: testnetBradbury })
 
-export const client = createClient({
-  chain: testnetBradbury,
-  account,
-})
+let walletAddress: string | null = null
+export function account(): string | null { return walletAddress }
+export function isWalletConnected(): boolean { return walletAddress !== null }
 
-// Real read of a contract view method
-export async function read(functionName: string, args: any[] = []) {
-  return client.readContract({
-    address: CONTRACT,
-    functionName,
-    args,
-  })
+// Connect MetaMask + GenLayer snap, switch to Bradbury, sign with the user's wallet.
+export async function connectWallet(): Promise<string> {
+  const eth = (globalThis as any).window?.ethereum
+  if (!eth) throw new Error('MetaMask not found — install it to sign transactions.')
+  const accounts: string[] = await eth.request({ method: 'eth_requestAccounts' })
+  await client.connect(testnetBradbury)
+  walletAddress = accounts[0]
+  ;(client as any).account = walletAddress
+  return walletAddress
 }
 
-// Real write — submits a transaction and waits for the receipt
-export async function write(functionName: string, args: any[] = []) {
-  const txHash = await client.writeContract({
-    address: CONTRACT,
-    functionName,
-    args,
-    value: 0n,
-  })
-  const receipt = await client.waitForTransactionReceipt({
-    hash: txHash,
-    status: 'FINALIZED',
-    retries: 40,
-    interval: 5000,
-  })
-  return { txHash, receipt }
+export async function read(fn: string, args: any[] = []) {
+  return client.readContract({ address: CONTRACT, functionName: fn, args })
+}
+
+export async function write(fn: string, args: any[] = []) {
+  if (!walletAddress) await connectWallet()
+  const txHash = await client.writeContract({ address: CONTRACT, functionName: fn, args, value: 0n })
+  await client.waitForTransactionReceipt({ hash: txHash, status: 'FINALIZED', retries: 60, interval: 5000 })
+  return txHash
 }
