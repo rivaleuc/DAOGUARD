@@ -2,6 +2,58 @@
 import json
 from genlayer import *
 
+CONFIDENCE_ENUM = ("high", "medium", "low")
+
+
+# ----------------------------------------------------------------------
+# Deterministic verdict logic (module-level so it is unit-testable and
+# shared verbatim between leader_fn and validator_fn — no free-form LLM
+# text comparison, which would hang consensus).
+# ----------------------------------------------------------------------
+def derive_recommendation(compliant: bool) -> str:
+    """The recommendation is a pure function of the compliance flag."""
+    return "approve" if compliant else "reject"
+
+
+def validate_verdict(data) -> bool:
+    """Deterministic cross-field invariant check used by every validator."""
+    if not isinstance(data, dict):
+        return False
+    compliant = data.get("compliant")
+    if not isinstance(compliant, bool):
+        return False
+    if data.get("confidence") not in CONFIDENCE_ENUM:
+        return False
+    violations = data.get("violations")
+    if not isinstance(violations, str) or not violations.strip():
+        return False
+    recommendation = data.get("recommendation")
+    if not isinstance(recommendation, str):
+        return False
+    # Cross-field anchor: recommendation must be derivable from `compliant`.
+    if recommendation != derive_recommendation(compliant):
+        return False
+    return True
+
+
+def normalize_verdict(raw) -> dict:
+    """Coerce a raw LLM dict into a verdict that always passes validate_verdict."""
+    if not isinstance(raw, dict):
+        raw = {}
+    compliant = bool(raw.get("compliant", False))
+    confidence = raw.get("confidence")
+    if confidence not in CONFIDENCE_ENUM:
+        confidence = "low"
+    violations = raw.get("violations")
+    if not isinstance(violations, str) or not violations.strip():
+        violations = "none" if compliant else "unspecified violation"
+    return {
+        "compliant": compliant,
+        "violations": violations,
+        "recommendation": derive_recommendation(compliant),
+        "confidence": confidence,
+    }
+
 
 class DAOGuard(gl.Contract):
     governor: str
@@ -73,28 +125,26 @@ RULES:
 5. Rate your confidence: high/medium/low.
 
 Reply ONLY valid JSON:
-{{"compliant": true/false, "violations": "<list violated clauses or 'none'>", "recommendation": "<approve/reject/needs amendment>", "confidence": "high"/"medium"/"low"}}
+{{"compliant": true/false, "violations": "<list violated clauses or 'none'>", "confidence": "high"/"medium"/"low"}}
 No markdown."""
 
             raw = gl.nondet.exec_prompt(prompt, response_format="json")
-            if isinstance(raw, dict):
-                return json.dumps(raw)
-            return str(raw).strip()
+            if not isinstance(raw, dict):
+                try:
+                    raw = json.loads(str(raw))
+                except Exception:
+                    raw = {}
+            # Leader derives the recommendation deterministically from compliant.
+            return json.dumps(normalize_verdict(raw))
 
         def validator_fn(leader_result) -> bool:
             if not isinstance(leader_result, gl.vm.Return):
                 return False
             try:
                 data = json.loads(leader_result.calldata)
-                if not isinstance(data.get("compliant"), bool):
-                    return False
-                if data.get("confidence") not in ("high", "medium", "low"):
-                    return False
-                if not isinstance(data.get("violations"), str):
-                    return False
-                return True
             except Exception:
                 return False
+            return validate_verdict(data)
 
         result_str = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
         return json.loads(result_str)

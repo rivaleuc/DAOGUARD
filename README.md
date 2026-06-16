@@ -4,8 +4,8 @@
 
 DAOGuard reads a DAO's charter and decides whether a proposal violates it — not with brittle keyword rules, but with an LLM that interprets the charter the way a human steward would. The charter is living text, the verdicts are produced by validator consensus, and an EVM gate can refuse to execute anything DAOGuard blocks.
 
-- **Contract (Bradbury, chain 4221):** `0x04C2242963bCE3686BF050E27AE7Fded463302a1`
-- **Explorer:** https://explorer-bradbury.genlayer.com/contract/0x04C2242963bCE3686BF050E27AE7Fded463302a1
+- **Contract (Bradbury, chain 4221):** `0x99347043D82487d1897358cdC650d0f80F6C89bB`
+- **Explorer:** https://explorer-bradbury.genlayer.com/contract/0x99347043D82487d1897358cdC650d0f80F6C89bB
 - **Live app:** https://daoguard.pages.dev
 
 ## What it does
