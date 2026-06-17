@@ -18,9 +18,14 @@ import {
   Lock,
   Activity,
   ExternalLink,
+  Coins,
+  Users,
+  Vote,
+  Banknote,
 } from 'lucide-react'
 import { read, write, connectWallet, isWalletConnected, CONTRACT } from './genlayer'
 import { Button, Card, Badge } from './components/ui'
+import { BorderBeam, NumberTicker, Meteors, Marquee, AuroraText, ShinyText, MagicCard } from './components/magic'
 
 const EXPLORER = `https://explorer-bradbury.genlayer.com/contract/${CONTRACT}`
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
@@ -42,6 +47,17 @@ const fadeUp = {
 }
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } }
 
+const TOPICS = [
+  { icon: Coins, label: 'Treasury allocation' },
+  { icon: Vote, label: 'Quorum change' },
+  { icon: Banknote, label: 'Grant payout' },
+  { icon: Users, label: 'Council election' },
+  { icon: Scale, label: 'Parameter update' },
+  { icon: Lock, label: 'Emergency freeze' },
+  { icon: Landmark, label: 'Charter amendment' },
+  { icon: Gavel, label: 'Contributor slash' },
+]
+
 export default function App() {
   const [wallet, setWallet] = useState<string | null>(null)
   const [stats, setStats] = useState({ proposals_checked: 0, approved: 0, blocked: 0 })
@@ -54,7 +70,6 @@ export default function App() {
   const [checking, setChecking] = useState(false)
   const [result, setResult] = useState<Verdict | null>(null)
 
-  // spotlight that follows the cursor in the hero
   const heroRef = useRef<HTMLDivElement>(null)
   function onHeroMove(e: React.MouseEvent) {
     const el = heroRef.current
@@ -156,8 +171,9 @@ export default function App() {
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/70 backdrop-blur-xl">
         <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
           <a href="#top" className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/15 ring-1 ring-primary/30">
+            <span className="relative grid h-9 w-9 place-items-center overflow-hidden rounded-xl bg-primary/15 ring-1 ring-primary/30">
               <ShieldCheck className="h-5 w-5 text-primary" />
+              <BorderBeam size={28} duration={5} />
             </span>
             <span className="text-[15px] font-bold tracking-tight">
               DAO<span className="text-primary">Guard</span>
@@ -167,9 +183,7 @@ export default function App() {
             <a href="#how" className="transition-colors hover:text-foreground">How it works</a>
             <a href="#features" className="transition-colors hover:text-foreground">Features</a>
             <a href="#console" className="transition-colors hover:text-foreground">Console</a>
-            <a href={EXPLORER} target="_blank" rel="noreferrer" className="transition-colors hover:text-foreground">
-              Contract
-            </a>
+            <a href={EXPLORER} target="_blank" rel="noreferrer" className="transition-colors hover:text-foreground">Contract</a>
           </div>
           <Button size="sm" variant={wallet ? 'outline' : 'primary'} onClick={handleConnect}>
             <Wallet className="h-4 w-4" />
@@ -183,24 +197,20 @@ export default function App() {
         id="top"
         ref={heroRef}
         onMouseMove={onHeroMove}
-        className="relative mx-auto max-w-6xl px-5 pt-20 pb-16 md:pt-28"
+        className="relative mx-auto max-w-6xl overflow-hidden px-5 pt-20 pb-16 md:pt-28"
       >
-        <div className="pointer-events-none absolute inset-0 [background:radial-gradient(420px_circle_at_var(--mx,50%)_var(--my,20%),color-mix(in_oklab,var(--color-primary)_10%,transparent),transparent_60%)]" />
+        <Meteors number={18} />
+        <div className="pointer-events-none absolute inset-0 [background:radial-gradient(440px_circle_at_var(--mx,50%)_var(--my,18%),color-mix(in_oklab,var(--color-primary)_12%,transparent),transparent_60%)]" />
         <motion.div variants={stagger} initial="hidden" animate="show" className="relative mx-auto max-w-3xl text-center">
           <motion.div variants={fadeUp} className="mb-5 flex justify-center">
-            <Badge tone="brand">
-              <Sparkles className="h-3.5 w-3.5" /> AI-validated governance · GenLayer
-            </Badge>
-          </motion.div>
-          <motion.h1
-            variants={fadeUp}
-            className="text-balance text-4xl font-black leading-[1.05] tracking-tight md:text-6xl"
-          >
-            Every proposal, checked against your{' '}
-            <span className="bg-gradient-to-r from-primary via-emerald-300 to-accent bg-clip-text text-transparent">
-              constitution
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/[0.07] px-3 py-1 text-xs">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <ShinyText>AI-validated governance · GenLayer</ShinyText>
             </span>
-            .
+          </motion.div>
+          <motion.h1 variants={fadeUp} className="text-balance text-4xl font-black leading-[1.05] tracking-tight md:text-6xl">
+            Every proposal, checked against your{' '}
+            <AuroraText>constitution</AuroraText>.
           </motion.h1>
           <motion.p variants={fadeUp} className="mx-auto mt-5 max-w-xl text-pretty text-base text-muted md:text-lg">
             DAOGuard reads your charter and judges whether a proposal violates it — through a
@@ -209,18 +219,17 @@ export default function App() {
           </motion.p>
           <motion.div variants={fadeUp} className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <a href="#console">
-              <Button size="lg">
+              <Button size="lg" className="relative overflow-hidden">
                 Check a proposal <ArrowRight className="h-4 w-4" />
+                <BorderBeam size={44} duration={4} colorFrom="#ffffff" colorTo="#34d399" />
               </Button>
             </a>
             <a href="#how">
-              <Button size="lg" variant="outline">
-                How it works
-              </Button>
+              <Button size="lg" variant="outline">How it works</Button>
             </a>
           </motion.div>
 
-          {/* live stat chips */}
+          {/* live stat chips with number tickers */}
           <motion.div variants={fadeUp} className="mt-12 grid grid-cols-3 gap-3 sm:gap-4">
             <Stat label="Proposals checked" value={stats.proposals_checked} icon={<FileCheck2 className="h-4 w-4" />} />
             <Stat label="Approved" value={stats.approved} tone="approve" icon={<Check className="h-4 w-4" />} />
@@ -228,6 +237,17 @@ export default function App() {
           </motion.div>
         </motion.div>
       </section>
+
+      {/* MARQUEE of governance topics */}
+      <div className="relative py-4">
+        <Marquee pauseOnHover className="[--duration:32s]">
+          {TOPICS.map((t) => (
+            <Pill key={t.label} icon={<t.icon className="h-3.5 w-3.5 text-primary" />} label={t.label} />
+          ))}
+        </Marquee>
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-background to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-background to-transparent" />
+      </div>
 
       {/* HOW IT WORKS */}
       <Section id="how" eyebrow="Workflow" title="From proposal to on-chain verdict">
@@ -238,7 +258,7 @@ export default function App() {
             { i: Gavel, t: '3 · Settle', d: 'A deterministic verdict (compliant + recommendation + confidence) is written on-chain for governance to act on.' },
           ].map((s, idx) => (
             <motion.div key={s.t} variants={fadeUp}>
-              <Card className="h-full p-6">
+              <MagicCard className="h-full p-6">
                 <div className="mb-4 flex items-center gap-3">
                   <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/12 ring-1 ring-primary/25">
                     <s.i className="h-5 w-5 text-primary" />
@@ -247,7 +267,7 @@ export default function App() {
                 </div>
                 <h3 className="text-lg font-bold">{s.t}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted">{s.d}</p>
-              </Card>
+              </MagicCard>
             </motion.div>
           ))}
         </div>
@@ -256,32 +276,30 @@ export default function App() {
       {/* FEATURES BENTO */}
       <Section id="features" eyebrow="Why DAOGuard" title="Judgment that holds up on-chain">
         <div className="grid gap-4 md:grid-cols-3 md:grid-rows-2">
-          <Feature
-            className="md:col-span-2 md:row-span-2"
-            icon={<Network className="h-5 w-5 text-primary" />}
-            title="Validator consensus, not one model"
-            body="Each validator independently judges the proposal against the charter. The leader's verdict is only accepted when validators agree it is internally consistent — so a single hallucination can't pass."
-            big
-          >
-            <div className="mt-6 grid grid-cols-3 gap-2">
-              {['high', 'medium', 'low'].map((c) => (
-                <div key={c} className="rounded-xl border border-border bg-white/[0.02] p-3 text-center">
-                  <div className="text-[10px] uppercase tracking-widest text-muted">confidence</div>
-                  <div className="mt-1 text-sm font-semibold capitalize text-foreground">{c}</div>
-                </div>
-              ))}
-            </div>
-          </Feature>
-          <Feature
-            icon={<ScrollText className="h-5 w-5 text-primary" />}
-            title="Charter-anchored"
-            body="The verdict is grounded in the on-chain charter — amendable only by the governor."
-          />
-          <Feature
-            icon={<Lock className="h-5 w-5 text-primary" />}
-            title="Deterministic recommendation"
-            body="approve / reject is a pure function of the compliance flag — never free-form text."
-          />
+          <motion.div variants={fadeUp} className="md:col-span-2 md:row-span-2">
+            <MagicCard className="relative h-full p-6">
+              <BorderBeam size={140} duration={8} />
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/12 ring-1 ring-primary/25">
+                <Network className="h-5 w-5 text-primary" />
+              </span>
+              <h3 className="mt-4 text-xl font-bold">Validator consensus, not one model</h3>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">
+                Each validator independently judges the proposal against the charter. The leader's
+                verdict is only accepted when validators agree it is internally consistent — so a
+                single hallucination can't pass.
+              </p>
+              <div className="mt-6 grid grid-cols-3 gap-2">
+                {['high', 'medium', 'low'].map((c) => (
+                  <div key={c} className="rounded-xl border border-border bg-white/[0.02] p-3 text-center">
+                    <div className="text-[10px] uppercase tracking-widest text-muted">confidence</div>
+                    <div className="mt-1 text-sm font-semibold capitalize text-foreground">{c}</div>
+                  </div>
+                ))}
+              </div>
+            </MagicCard>
+          </motion.div>
+          <Feature icon={<ScrollText className="h-5 w-5 text-primary" />} title="Charter-anchored" body="The verdict is grounded in the on-chain charter — amendable only by the governor." />
+          <Feature icon={<Lock className="h-5 w-5 text-primary" />} title="Deterministic recommendation" body="approve / reject is a pure function of the compliance flag — never free-form text." />
         </div>
       </Section>
 
@@ -289,100 +307,95 @@ export default function App() {
       <Section id="console" eyebrow="Live on Bradbury" title="Compliance console">
         <div className="grid gap-4 lg:grid-cols-5">
           {/* charter */}
-          <Card className="lg:col-span-2 p-6">
+          <MagicCard className="p-6 lg:col-span-2">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
               <Landmark className="h-4 w-4 text-primary" /> DAO charter
             </div>
             <div className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl border border-border bg-background/60 p-4 text-[13px] leading-relaxed text-muted">
               {charter || 'Loading charter from chain…'}
             </div>
-            <a
-              href={EXPLORER}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-primary"
-            >
+            <a href={EXPLORER} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-primary">
               <ExternalLink className="h-3.5 w-3.5" /> {short(CONTRACT)} on explorer
             </a>
-          </Card>
+          </MagicCard>
 
           {/* form + result */}
-          <Card className="lg:col-span-3 p-6">
-            <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
-              <Gavel className="h-4 w-4 text-primary" /> Submit a proposal for review
-            </div>
-            <div className="space-y-3">
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Proposal title — e.g. “Allocate 5% of treasury to a marketing DAO”"
-                className="w-full rounded-xl border border-border bg-background/60 px-4 py-3 text-sm outline-none transition-colors placeholder:text-muted/60 focus:border-primary/50"
-              />
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={4}
-                placeholder="Full proposal text — what should the DAO do, and why?"
-                className="w-full resize-none rounded-xl border border-border bg-background/60 px-4 py-3 text-sm outline-none transition-colors placeholder:text-muted/60 focus:border-primary/50"
-              />
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <input
-                  value={authorName}
-                  onChange={(e) => setAuthorName(e.target.value)}
-                  placeholder="Author (optional)"
-                  className="flex-1 rounded-xl border border-border bg-background/60 px-4 py-3 text-sm outline-none transition-colors placeholder:text-muted/60 focus:border-primary/50"
-                />
-                <Button onClick={runCheck} disabled={checking} className="sm:w-48">
-                  {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                  {checking ? 'Judging…' : 'Run compliance check'}
-                </Button>
+          <div className="relative lg:col-span-3">
+            <Card className="relative overflow-hidden p-6">
+              {checking && <BorderBeam size={120} duration={3} />}
+              <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
+                <Gavel className="h-4 w-4 text-primary" /> Submit a proposal for review
               </div>
-            </div>
+              <div className="space-y-3">
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Proposal title — e.g. “Allocate 5% of treasury to a marketing DAO”"
+                  className="w-full rounded-xl border border-border bg-background/60 px-4 py-3 text-sm outline-none transition-colors placeholder:text-muted/60 focus:border-primary/50"
+                />
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  rows={4}
+                  placeholder="Full proposal text — what should the DAO do, and why?"
+                  className="w-full resize-none rounded-xl border border-border bg-background/60 px-4 py-3 text-sm outline-none transition-colors placeholder:text-muted/60 focus:border-primary/50"
+                />
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    value={authorName}
+                    onChange={(e) => setAuthorName(e.target.value)}
+                    placeholder="Author (optional)"
+                    className="flex-1 rounded-xl border border-border bg-background/60 px-4 py-3 text-sm outline-none transition-colors placeholder:text-muted/60 focus:border-primary/50"
+                  />
+                  <Button onClick={runCheck} disabled={checking} className="sm:w-48">
+                    {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                    {checking ? 'Judging…' : 'Run compliance check'}
+                  </Button>
+                </div>
+              </div>
 
-            <AnimatePresence>
-              {result && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="mt-5 overflow-hidden"
-                >
-                  <div
-                    className={`rounded-2xl border p-5 ${
-                      result.compliant ? 'border-approve/30 bg-approve/[0.06]' : 'border-block/30 bg-block/[0.06]'
-                    }`}
+              <AnimatePresence>
+                {result && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-5 overflow-hidden"
                   >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge tone={result.compliant ? 'approve' : 'block'}>
-                        {result.compliant ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
-                        {result.recommendation?.toUpperCase() ?? (result.compliant ? 'APPROVE' : 'REJECT')}
-                      </Badge>
-                      <Badge tone={result.confidence === 'high' ? 'approve' : result.confidence === 'low' ? 'block' : 'caution'}>
-                        confidence: {result.confidence}
-                      </Badge>
+                    <div className={`rounded-2xl border p-5 ${result.compliant ? 'border-approve/30 bg-approve/[0.06]' : 'border-block/30 bg-block/[0.06]'}`}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone={result.compliant ? 'approve' : 'block'}>
+                          {result.compliant ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                          {result.recommendation?.toUpperCase() ?? (result.compliant ? 'APPROVE' : 'REJECT')}
+                        </Badge>
+                        <Badge tone={result.confidence === 'high' ? 'approve' : result.confidence === 'low' ? 'block' : 'caution'}>
+                          confidence: {result.confidence}
+                        </Badge>
+                      </div>
+                      <p className="mt-3 text-sm font-medium text-foreground">{result.title}</p>
+                      <p className="mt-2 text-sm leading-relaxed text-muted">
+                        <span className="text-foreground/80">Charter analysis: </span>
+                        {result.violations}
+                      </p>
                     </div>
-                    <p className="mt-3 text-sm font-medium text-foreground">{result.title}</p>
-                    <p className="mt-2 text-sm leading-relaxed text-muted">
-                      <span className="text-foreground/80">Charter analysis: </span>
-                      {result.violations}
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </Card>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Card>
+          </div>
         </div>
 
         {/* recent verdicts */}
         {recent.length > 0 && (
           <div className="mt-8">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted">
-              <Activity className="h-4 w-4" /> Recent verdicts · {approvalRate}% approved
+              <Activity className="h-4 w-4" /> Recent verdicts ·{' '}
+              <span className="text-primary"><NumberTicker value={approvalRate} />% approved</span>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               {recent.map((p) => (
                 <motion.div key={p.key} variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true }}>
-                  <Card className="flex items-start justify-between gap-3 p-4">
+                  <MagicCard className="flex items-start justify-between gap-3 p-4" glow={p.compliant ? '#34d399' : '#fb7185'}>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{p.title}</p>
                       <p className="mt-1 line-clamp-2 text-xs text-muted">{p.violations}</p>
@@ -390,7 +403,7 @@ export default function App() {
                     <Badge tone={p.compliant ? 'approve' : 'block'} className="shrink-0">
                       {p.compliant ? 'approved' : 'blocked'}
                     </Badge>
-                  </Card>
+                  </MagicCard>
                 </motion.div>
               ))}
             </div>
@@ -435,12 +448,22 @@ function Stat({
 }) {
   const color = tone === 'approve' ? 'text-approve' : tone === 'block' ? 'text-block' : 'text-foreground'
   return (
-    <div className="rounded-2xl border border-border bg-card/60 p-4 backdrop-blur-sm">
+    <MagicCard className="p-4" glow={tone === 'block' ? '#fb7185' : '#34d399'}>
       <div className="flex items-center justify-center gap-1.5 text-[11px] uppercase tracking-wider text-muted">
         {icon} {label}
       </div>
-      <div className={`mt-1.5 text-2xl font-black tabular-nums md:text-3xl ${color}`}>{value}</div>
-    </div>
+      <div className={`mt-1.5 text-2xl font-black tabular-nums md:text-3xl ${color}`}>
+        <NumberTicker value={value} />
+      </div>
+    </MagicCard>
+  )
+}
+
+function Pill({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <span className="mx-2 inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card/60 px-4 py-2 text-sm text-foreground/80 backdrop-blur-sm">
+      {icon} {label}
+    </span>
   )
 }
 
@@ -473,31 +496,14 @@ function Section({
   )
 }
 
-function Feature({
-  icon,
-  title,
-  body,
-  className,
-  big,
-  children,
-}: {
-  icon: React.ReactNode
-  title: string
-  body: string
-  className?: string
-  big?: boolean
-  children?: React.ReactNode
-}) {
+function Feature({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
-    <motion.div variants={fadeUp} className={className}>
-      <Card className="group h-full p-6 transition-colors hover:border-primary/30">
-        <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/12 ring-1 ring-primary/25">
-          {icon}
-        </span>
-        <h3 className={`mt-4 font-bold ${big ? 'text-xl' : 'text-base'}`}>{title}</h3>
+    <motion.div variants={fadeUp}>
+      <MagicCard className="h-full p-6">
+        <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/12 ring-1 ring-primary/25">{icon}</span>
+        <h3 className="mt-4 text-base font-bold">{title}</h3>
         <p className="mt-2 text-sm leading-relaxed text-muted">{body}</p>
-        {children}
-      </Card>
+      </MagicCard>
     </motion.div>
   )
 }
